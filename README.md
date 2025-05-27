@@ -20,9 +20,9 @@ The image includes the following network utilities:
 | `iproute2`         | Modern `ip` utility for routes and interfaces    |  
 | `iputils`          | Tools like `ping`, `arping`, `clockdiff`         |  
 | `busybox`          | Adds lightweight POSIX tools                     |  
-> 🧪 All tools run as a **non-root user** (`nettool`) for added safety inside clusters.  
+> 🧪 All tools run as a **non-root user** (`kube-netutils`) for added safety inside clusters.  
 ## 🔐 Security Practices  
-- ✅ Non-root execution (`USER nettool`)  
+- ✅ Non-root execution (`USER kube-netutils`)  
 - ✅ `readOnlyRootFilesystem` in the Pod  
 - ✅ Linux capabilities dropped (`capabilities.drop: ALL`)  
 - ✅ Minimal image size  
@@ -32,7 +32,7 @@ A secure multi-stage CI pipeline is configured to:
 1. **Build** the Docker image with a date-time tag and `latest`  
 2. **Scan** the image using [Aqua Trivy](https://github.com/aquasecurity/trivy)  
 3. **Push** the image to Docker Hub **only if** no vulnerabilities are found  
-You can find the pipeline under `.github/workflows/docker-secure-pipeline.yml`.  
+You can find the pipeline under `.github/workflows/ci-pipeline.yml`.  
 ### Example Tags  
 - `youruser/kube-netutils:20250526.2335`  
 - `youruser/kube-netutils:latest`  
@@ -41,10 +41,10 @@ You can find the pipeline under `.github/workflows/docker-secure-pipeline.yml`.
 apiVersion: v1  
 kind: Pod  
 metadata:  
-  name: netutils  
+  name: kube-netutils  
 spec:  
   containers:  
-    - name: netutils  
+    - name: kube-netutils  
       image: yourdockerhubuser/kube-netutils:latest  
       command: ["sleep", "infinity"]  
       securityContext:  
@@ -59,7 +59,7 @@ spec:
 ```  
 You can then exec into the pod for diagnostics:  
 ```bash  
-kubectl exec -it netutils -- sh  
+kubectl exec -it kube-netutils -- sh  
 ```  
 ## 🧪 Common Commands Inside the Pod  
 ```bash  
@@ -95,6 +95,6 @@ docker build -t kube-netutils .
 - Alpine version pinning & SBOM generation  
 ## 📜 License  
 This project is licensed under the MIT License — see the `LICENSE` file for details.
-  
+
 ## Contributions  
 Contributions, bug reports, and feature requests are welcome! Please open an issue or submit a PR.  

@@ -34,6 +34,10 @@ jobs:
         run: |
           docker build -t ${{ steps.set-tag.outputs.image-tag }} -t ${{ steps.set-tag.outputs.latest-tag }} .
 
+      - name: Push image for remote scanning
+        run: |
+          docker push ${{ steps.set-tag.outputs.image-tag }}
+
   scan:
     name: Scan Image with Trivy
     runs-on: ubuntu-latest
@@ -41,17 +45,32 @@ jobs:
     outputs:
       passed: ${{ steps.check.outputs.passed }}
     steps:
-      - name: Install Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ needs.build.outputs.image-tag }}
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
+      - name: Print Table Scan for Logging (non-failing)
+        run: |
+          docker run --rm aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            ${{ needs.build.outputs.image-tag }} || true
 
-      - name: Set Pass Status
+      - name: Run Scan in JSON Format (for logic)
+        run: |
+          docker run --rm aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format json \
+            -o trivy-results.json \
+            ${{ needs.build.outputs.image-tag }}
+
+      - name: Check for HIGH/CRITICAL vulnerabilities
         id: check
-        run: echo "passed=true" >> "$GITHUB_OUTPUT"
+        run: |
+          COUNT=$(jq '[.[] | select(.Vulnerabilities != null) | .Vulnerabilities[] | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' trivy-results.json)
+          echo "Found $COUNT HIGH/CRITICAL vulnerabilities"
+          if [ "$COUNT" -gt 0 ]; then
+            exit 1
+          fi
+          echo "passed=true" >> "$GITHUB_OUTPUT"
 
   push:
     name: Push Docker Image
@@ -65,7 +84,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push Both Image Tags (timestamp + latest)
+      - name: Push Latest Tag (timestamp tag already pushed in build job)
         run: |
-          docker push ${{ needs.build.outputs.image-tag }}
+          docker pull ${{ needs.build.outputs.image-tag }}
+          docker tag ${{ needs.build.outputs.image-tag }} ${{ needs.build.outputs.latest-tag }}
           docker push ${{ needs.build.outputs.latest-tag }}

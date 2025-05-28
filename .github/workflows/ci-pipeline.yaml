@@ -20,7 +20,7 @@ jobs:
         id: set-tag
         run: |
           TAG=$(date +'%Y%m%d.%H%M')
-          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/secure-nettools
+          IMAGE=cloudopsknight/kube-netutils
           echo "image-tag=${IMAGE}:${TAG}" >> "$GITHUB_OUTPUT"
           echo "latest-tag=${IMAGE}:latest" >> "$GITHUB_OUTPUT"
 

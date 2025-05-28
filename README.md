@@ -1,5 +1,5 @@
 # 🔧 kube-netutils  
-> A lightweight and secure diagnostic toolbox for containerized workloads in Kubernetes.  
+> A lightweight and secure Network diagnostic toolbox for containerized workloads in Kubernetes.  
 ## 📘 Overview  
 **kube-netutils** is a minimal, hardened container image designed for performing network diagnostics and troubleshooting within Kubernetes clusters. It includes essential CLI tools for DNS, TCP/UDP connectivity, ICMP, routing, and more, all bundled in a security-conscious Alpine-based container. This project is ideal for platform engineers, SREs, and Kubernetes administrators who need to debug network connectivity from within pods without deploying heavyweight or privileged tools.  
 ## 🏗️ Base Image  

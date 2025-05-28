@@ -4,21 +4,32 @@ on:
   push:
     branches:
       - main
-  
+
 permissions:
   security-events: write
   contents: read
-  
+
 jobs:
   build-and-scan:
     name: Build, Scan, and Push Docker Image
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: cloudopsknight/kube-netutils
-      IMAGE_TAG: ${{ github.sha }}
+    outputs:
+      image-tag: ${{ steps.tags.outputs.image-tag }}
+      latest-tag: ${{ steps.tags.outputs.latest-tag }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Set Image Tags
+        id: tags
+        run: |
+          IMAGE=cloudopsknight/kube-netutils
+          TIMESTAMP=$(date +'%Y%m%d.%H%M')
+          IMAGE_TAG=${IMAGE}:${TIMESTAMP}
+          LATEST_TAG=${IMAGE}:latest
+          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "latest-tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -28,28 +39,29 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t docker.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+          docker build -t ${{ steps.tags.outputs.image-tag }} .
+          docker push ${{ steps.tags.outputs.image-tag }}
 
       - name: Run Trivy (human-readable output)
         uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
         with:
-          image-ref: docker.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          image-ref: ${{ steps.tags.outputs.image-tag }}
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: 0  # Print results, but don’t fail yet
+          exit-code: 0
 
       - name: Run Trivy (SARIF for GitHub Security tab + hard fail)
         id: trivy-scan
         uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
         with:
-          image-ref: docker.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          image-ref: ${{ steps.tags.outputs.image-tag }}
           format: 'template'
           template: '@/contrib/sarif.tpl'
           output: 'trivy-results.sarif'
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: 1  # Fail step if high/critical found
+          exit-code: 1
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -57,6 +69,8 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
       - name: Push Docker Image to Docker Hub
-        if: success()  # Only runs if scan above didn't fail
+        if: success()
         run: |
-          docker push docker.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.tags.outputs.image-tag }}
+          docker tag ${{ steps.tags.outputs.image-tag }} ${{ steps.tags.outputs.latest-tag }}
+          docker push ${{ steps.tags.outputs.latest-tag }}
